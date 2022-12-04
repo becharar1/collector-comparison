@@ -1,0 +1,113 @@
+version: "3.7"
+services:
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafanaprovisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafanaprovisioning/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - cortex
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+       - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    links: 
+      - cortex
+
+  telegrafcpu:
+    image: telegraf:latest
+    container_name: telegrafcpu
+    volumes:
+    - ./config/telegrafcpu.conf:/etc/telegraf/telegraf.conf:ro
+    - ./config/telegrafcortex.conf:/etc/telegraf/telegraf.d/telegrafcortex.conf:ro
+    restart: always
+    ports:
+    - '8125:8125'
+
+    links:
+      - cortex
+
+  telegrafdocker:
+    image: telegraf:latest
+    container_name: telegrafdocker
+    volumes:
+    - ./config/telegrafdocker.conf:/etc/telegraf/telegraf.conf:ro
+    - //var/run/docker.sock://var/run/docker.sock
+    restart: always
+    links:
+      - cortex
+
+  telegrafmemory:
+    image: telegraf:latest
+    container_name: telegrafmemory
+    volumes:
+    - ./config/telegrafmemory.conf:/etc/telegraf/telegraf.conf:ro
+    restart: always
+    links:
+      - cortex
+
+  telegrafcpubucket:
+    image: telegraf:latest
+    container_name: telegrafcpubucket
+    volumes:
+    - ./config/telegrafcpubucket.conf:/etc/telegraf/telegraf.conf:ro
+    restart: always
+    links:
+      - cortex
+
+  cortex:
+    image: cortexproject/cortex:v1.8.1
+    volumes:
+      - ./config/cortex-config.yml:/etc/cortex-config/cortex.yaml
+    entrypoint:
+      - /bin/cortex
+      - -config.file=/etc/cortex-config/cortex.yaml
+    ports:
+      - "9009:9009"
+
+  agent:
+    image: grafana/agent:latest
+    volumes:
+      - ./config/agent-config.yml:/etc/agent-config/agent.yaml
+      - //var/run/docker.sock://var/run/docker.sock
+    entrypoint:
+      - /bin/agent
+      - -config.file=/etc/agent-config/agent.yaml
+      - -metrics.wal-directory=/tmp/agent/wal
+      - -config.expand-env
+      - -config.enable-read-api
+    environment:
+      - MYSQL_HOST= localhost:3306
+    #volumes:
+      #- //var/run/docker.sock://var/run/docker.sock
+    ports:
+      - "12345:12345"
+    depends_on:
+      - cortex
+
+  collectd:
+    image: fr3nd/collectd
+    privileged: true
+    network_mode: host
+    volumes:
+      - /proc:/mnt/proc:ro
+      - ./config/collectd.conf:/etc/collectd/collectd.conf
+
+  collprom:
+    image: prom/collectd-exporter
+    ports:
+      - "9103:9103"
+      - "25826:25826/udp"
+    command:
+    - --collectd.listen-address=:25826
+
+
+
+volumes:
+  influxdb_data:  
