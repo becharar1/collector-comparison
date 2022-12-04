@@ -34,14 +34,6 @@ scrape_configs:
     static_configs:
       - targets: ['host.docker.internal:9103'] # Only works on Docker Desktop for Windows
 
- - job_name: 'telegraf'
-
-    # metrics_path defaults to '/metrics'
-    # scheme defaults to 'http'.
-
-    static_configs:
-      - targets: ['host.docker.internal:9273'] # Only works on Docker Desktop for Windows
-
 remote_write:
   - url: http://cortex:9009/api/prom/push
 
